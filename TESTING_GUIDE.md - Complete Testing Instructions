@@ -1,0 +1,379 @@
+# User Management API - Testing Guide
+
+This guide provides step-by-step instructions for testing the User Management Microservice using Postman.
+
+## Prerequisites
+
+1. **Application Running**: Ensure the Spring Boot application is running on `http://localhost:8080`
+2. **Postman Installed**: Download and install [Postman](https://www.postman.com/downloads/)
+3. **Import Collection**: Import the provided `User Management API.postman_collection.json`
+
+## Testing Flow
+
+### Step 1: Authentication Testing
+
+#### 1.1 Test User Registration
+```http
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe", 
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+```
+
+**Expected Response (201 Created):**
+```json
+{
+  "message": "User registered successfully!"
+}
+```
+
+#### 1.2 Test Login with Default Admin
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "admin123"
+}
+```
+
+**Expected Response (200 OK):**
+```json
+{
+  "token": "eyJhbGciOiJIUzUxMiJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "admin@example.com",
+  "firstName": "Admin",
+  "lastName": "User",
+  "roles": ["ROLE_ADMIN", "ROLE_USER"]
+}
+```
+
+#### 1.3 Test Login with Regular User
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "user123"
+}
+```
+
+**Expected Response (200 OK):**
+```json
+{
+  "token": "eyJhbGciOiJIUzUxMiJ9...",
+  "type": "Bearer",
+  "id": 2,
+  "email": "user@example.com",
+  "firstName": "Regular",
+  "lastName": "User",
+  "roles": ["ROLE_USER"]
+}
+```
+
+### Step 2: User Management Testing (with Admin Token)
+
+#### 2.1 Get All Users (Admin Only)
+```http
+GET http://localhost:8080/api/users
+Authorization: Bearer <admin-jwt-token>
+```
+
+**Expected Response (200 OK):**
+```json
+[
+  {
+    "id": 1,
+    "firstName": "Admin",
+    "lastName": "User",
+    "email": "admin@example.com",
+    "roles": ["ROLE_ADMIN", "ROLE_USER"],
+    "createdAt": "2024-01-20T10:30:00"
+  },
+  {
+    "id": 2,
+    "firstName": "Regular",
+    "lastName": "User",
+    "email": "user@example.com",
+    "roles": ["ROLE_USER"],
+    "createdAt": "2024-01-20T10:30:00"
+  }
+]
+```
+
+#### 2.2 Get User by ID
+```http
+GET http://localhost:8080/api/users/1
+Authorization: Bearer <admin-jwt-token>
+```
+
+**Expected Response (200 OK):**
+```json
+{
+  "id": 1,
+  "firstName": "Admin",
+  "lastName": "User",
+  "email": "admin@example.com",
+  "roles": ["ROLE_ADMIN", "ROLE_USER"],
+  "createdAt": "2024-01-20T10:30:00"
+}
+```
+
+#### 2.3 Get Current User Profile
+```http
+GET http://localhost:8080/api/users/profile
+Authorization: Bearer <admin-jwt-token>
+```
+
+### Step 3: Role-based Access Control Testing
+
+#### 3.1 Test Regular User Access to Admin Endpoint
+```http
+GET http://localhost:8080/api/users
+Authorization: Bearer <user-jwt-token>
+```
+
+**Expected Response (403 Forbidden):**
+```json
+{
+  "status": 403,
+  "error": "Forbidden",
+  "message": "Access denied. You don't have permission to access this resource.",
+  "timestamp": "2024-01-20T10:30:00",
+  "path": "uri=/api/users"
+}
+```
+
+#### 3.2 Test User Accessing Own Profile
+```http
+GET http://localhost:8080/api/users/2
+Authorization: Bearer <user-jwt-token>
+```
+**Expected**: 200 OK (user can access own profile)
+
+#### 3.3 Test User Accessing Another User's Profile
+```http
+GET http://localhost:8080/api/users/1
+Authorization: Bearer <user-jwt-token>
+```
+**Expected**: 403 Forbidden
+
+### Step 4: Error Handling Testing
+
+#### 4.1 Test Invalid Login Credentials
+```http
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "wrong@example.com",
+  "password": "wrongpassword"
+}
+```
+
+**Expected Response (401 Unauthorized):**
+```json
+{
+  "status": 401,
+  "message": "Invalid email or password",
+  "timestamp": "2024-01-20T10:30:00",
+  "path": "uri=/api/auth/login"
+}
+```
+
+#### 4.2 Test Access Without Token
+```http
+GET http://localhost:8080/api/users
+```
+
+**Expected Response (401 Unauthorized):**
+```json
+{
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Full authentication is required to access this resource",
+  "path": "/api/users"
+}
+```
+
+#### 4.3 Test Duplicate Email Registration
+```http
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "email": "admin@example.com",
+  "password": "password123"
+}
+```
+
+**Expected Response (400 Bad Request):**
+```json
+{
+  "status": 400,
+  "message": "Email is already taken!",
+  "timestamp": "2024-01-20T10:30:00",
+  "path": "uri=/api/auth/register"
+}
+```
+
+#### 4.4 Test Validation Errors
+```http
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "",
+  "lastName": "",
+  "email": "invalid-email",
+  "password": "123"
+}
+```
+
+**Expected Response (400 Bad Request):**
+```json
+{
+  "status": 400,
+  "message": "Validation failed",
+  "timestamp": "2024-01-20T10:30:00",
+  "errors": {
+    "firstName": "must not be blank",
+    "lastName": "must not be blank",
+    "email": "must be a well-formed email address",
+    "password": "size must be between 6 and 40"
+  }
+}
+```
+
+### Step 5: Delete User Testing (Admin Only)
+
+#### 5.1 Delete User Successfully
+```http
+DELETE http://localhost:8080/api/users/3
+Authorization: Bearer <admin-jwt-token>
+```
+
+**Expected Response (200 OK):**
+```json
+{
+  "message": "User deleted successfully!"
+}
+```
+
+#### 5.2 Test Delete Non-existent User
+```http
+DELETE http://localhost:8080/api/users/999
+Authorization: Bearer <admin-jwt-token>
+```
+
+**Expected Response (404 Not Found):**
+```json
+{
+  "status": 404,
+  "message": "User not found with id: 999",
+  "timestamp": "2024-01-20T10:30:00",
+  "path": "uri=/api/users/999"
+}
+```
+
+## Test Scenarios Summary
+
+| Test Case | Method | Endpoint | Expected Status | Description |
+|-----------|--------|----------|----------------|-------------|
+| Register User | POST | /api/auth/register | 201 | Successful registration |
+| Login Admin | POST | /api/auth/login | 200 | Admin login with JWT |
+| Login User | POST | /api/auth/login | 200 | Regular user login |
+| Get All Users (Admin) | GET | /api/users | 200 | Admin can see all users |
+| Get All Users (User) | GET | /api/users | 403 | User cannot access |
+| Get Own Profile | GET | /api/users/{id} | 200 | User can see own profile |
+| Get Other Profile | GET | /api/users/{id} | 403 | User cannot see others |
+| Get Current Profile | GET | /api/users/profile | 200 | Any user can access |
+| Delete User (Admin) | DELETE | /api/users/{id} | 200 | Admin can delete |
+| Delete User (User) | DELETE | /api/users/{id} | 403 | User cannot delete |
+| Invalid Credentials | POST | /api/auth/login | 401 | Wrong password |
+| No Token Access | GET | /api/users | 401 | Missing authorization |
+| Duplicate Email | POST | /api/auth/register | 400 | Email already exists |
+| Validation Error | POST | /api/auth/register | 400 | Invalid input data |
+
+## Postman Collection Setup
+
+1. **Import Collection**: Import the provided JSON file
+2. **Set Base URL**: Collection variable `baseUrl` = `http://localhost:8080`
+3. **Auto Token Storage**: Login requests automatically save JWT tokens
+4. **Token Usage**: Requests use `{{jwt_token}}` variable automatically
+
+## Video Demo Script
+
+For the 5-10 minute video explanation, follow this script:
+
+### Introduction (30 seconds)
+- "Hello, I'm demonstrating the User Management Microservice built with Spring Boot"
+- "This API provides JWT authentication and role-based authorization"
+
+### Project Overview (1 minute)
+- Show project structure in IDE
+- Explain key components: Controllers, Services, Security, DTOs
+- Highlight Spring Security configuration and JWT implementation
+
+### Database Setup (30 seconds)
+- Show H2 console with sample data
+- Explain default users (admin and regular user)
+
+### API Testing (3-4 minutes)
+- **Registration**: Register a new user
+- **Login**: Login with admin credentials, show JWT token response
+- **Admin Access**: Use admin token to get all users
+- **User Access**: Login as regular user, try to access admin endpoint (show 403 error)
+- **Profile Access**: Show user can access own profile
+- **Delete Operation**: Admin deletes a user
+
+### Security Features (1 minute)
+- Explain JWT token validation
+- Show role-based access control in action
+- Demonstrate error handling
+
+### Code Walkthrough (1-2 minutes)
+- Show key security configuration
+- Explain JWT utility class
+- Highlight global exception handling
+
+### Conclusion (30 seconds)
+- Summarize features implemented
+- Mention all requirements fulfilled
+- Thank you message
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port 8080 already in use**
+   ```bash
+   # Change port in application.properties
+   server.port=8081
+   ```
+
+2. **JWT Token not working**
+   - Check token expiration (24 hours default)
+   - Ensure "Bearer " prefix in Authorization header
+   - Verify token format
+
+3. **H2 Console not accessible**
+   - Check `spring.h2.console.enabled=true`
+   - Use URL: `http://localhost:8080/h2-console`
+
+4. **CORS issues**
+   - Current config allows all origins
+   - For production, configure specific origins
+
+This comprehensive testing guide ensures all functionality is properly validated and demonstrates the complete working system.
