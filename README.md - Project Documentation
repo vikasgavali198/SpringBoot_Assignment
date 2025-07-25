@@ -1,0 +1,278 @@
+# User Management Microservice
+
+A Spring Boot REST API for user management with JWT authentication and role-based authorization.
+
+## Features
+
+- **User Registration & Login**: Register new users and authenticate with email/password
+- **JWT Authentication**: Secure token-based authentication
+- **Role-based Authorization**: Support for USER and ADMIN roles
+- **User Management APIs**: CRUD operations with proper access control
+- **Global Exception Handling**: Centralized error handling with meaningful responses
+- **In-memory H2 Database**: Easy setup and testing
+
+## Tech Stack
+
+- Java 11
+- Spring Boot 2.7.0
+- Spring Security
+- JWT (jjwt 0.11.5)
+- H2 Database
+- Maven
+- Spring Data JPA
+
+## Quick Start
+
+### Prerequisites
+- Java 11 or higher
+- Maven 3.6+
+
+### Running the Application
+
+1. **Clone the repository**
+   ```bash
+   git clone <your-repo-url>
+   cd user-management-service
+   ```
+
+2. **Run the application**
+   ```bash
+   mvn spring-boot:run
+   ```
+
+3. **Access the application**
+   - API Base URL: `http://localhost:8080`
+   - H2 Console: `http://localhost:8080/h2-console`
+     - JDBC URL: `jdbc:h2:mem:testdb`
+     - Username: `sa`
+     - Password: `password`
+
+## Default Users
+
+The application creates default users on startup:
+
+- **Admin User**
+  - Email: `admin@example.com`
+  - Password: `admin123`
+  - Roles: ROLE_ADMIN, ROLE_USER
+
+- **Regular User**
+  - Email: `user@example.com`
+  - Password: `user123`
+  - Roles: ROLE_USER
+
+## API Endpoints
+
+### Authentication Endpoints
+
+#### Register User
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+```
+
+#### Login
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "john.doe@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzUxMiJ9...",
+  "type": "Bearer",
+  "id": 1,
+  "email": "john.doe@example.com",
+  "firstName": "John",
+  "lastName": "Doe",
+  "roles": ["ROLE_USER"]
+}
+```
+
+### User Management Endpoints (Secured)
+
+#### Get All Users (Admin Only)
+```http
+GET /api/users
+Authorization: Bearer <jwt-token>
+```
+
+#### Get User by ID
+```http
+GET /api/users/{id}
+Authorization: Bearer <jwt-token>
+```
+- **ADMIN**: Can access any user
+- **USER**: Can only access their own profile
+
+#### Get Current User Profile
+```http
+GET /api/users/profile
+Authorization: Bearer <jwt-token>
+```
+
+#### Delete User (Admin Only)
+```http
+DELETE /api/users/{id}
+Authorization: Bearer <jwt-token>
+```
+
+## Authentication Flow
+
+1. **Register** a new user via `/api/auth/register`
+2. **Login** with credentials via `/api/auth/login` to receive JWT token
+3. **Include JWT token** in Authorization header: `Bearer <token>`
+4. **Access secured endpoints** with proper role-based permissions
+
+## Security Configuration
+
+- **JWT Secret**: Configurable via `app.jwtSecret` property
+- **Token Expiration**: 24 hours (configurable via `app.jwtExpirationInMs`)
+- **Password Encryption**: BCrypt
+- **CORS**: Enabled for all origins (configure for production)
+
+## Role-based Access Control
+
+| Endpoint | USER | ADMIN |
+|----------|------|-------|
+| POST /api/auth/register | ✅ | ✅ |
+| POST /api/auth/login | ✅ | ✅ |
+| GET /api/users | ❌ | ✅ |
+| GET /api/users/{id} | Own profile only | ✅ |
+| GET /api/users/profile | ✅ | ✅ |
+| DELETE /api/users/{id} | ❌ | ✅ |
+
+## Error Handling
+
+The application provides comprehensive error handling with meaningful HTTP status codes:
+
+- **400 Bad Request**: Validation errors, user already exists
+- **401 Unauthorized**: Invalid credentials, missing/invalid JWT
+- **403 Forbidden**: Access denied due to insufficient permissions
+- **404 Not Found**: Resource not found
+- **500 Internal Server Error**: Unexpected errors
+
+## Testing with Postman
+
+1. **Register a new user**
+2. **Login to get JWT token**
+3. **Set Authorization header**: `Bearer <your-jwt-token>`
+4. **Test various endpoints** with different roles
+
+### Sample Postman Collection
+
+```json
+{
+  "info": {
+    "name": "User Management API"
+  },
+  "item": [
+    {
+      "name": "Register User",
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8080/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "url": "http://localhost:8080/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Project Structure
+
+```
+src/main/java/com/example/usermanagement/
+├── config/
+│   ├── DataLoader.java
+│   └── WebSecurityConfig.java
+├── controller/
+│   ├── AuthController.java
+│   └── UserController.java
+├── dto/
+│   └── [Request/Response DTOs]
+├── entity/
+│   ├── User.java
+│   └── Role.java
+├── exception/
+│   ├── GlobalExceptionHandler.java
+│   └── [Custom Exceptions]
+├── repository/
+│   └── UserRepository.java
+├── security/
+│   ├── UserPrincipal.java
+│   ├── UserDetailsServiceImpl.java
+│   └── jwt/
+│       ├── AuthTokenFilter.java
+│       ├── AuthEntryPointJwt.java
+│       └── JwtUtils.java
+├── service/
+│   └── UserService.java
+└── UserManagementServiceApplication.java
+```
+
+## Configuration
+
+Key configuration properties in `application.properties`:
+
+```properties
+# Server
+server.port=8080
+
+# Database
+spring.h2.console.enabled=true
+spring.datasource.url=jdbc:h2:mem:testdb
+
+# JWT
+app.jwtSecret=mySecretKey
+app.jwtExpirationInMs=86400000
+```
+
+## Building for Production
+
+```bash
+# Build JAR file
+mvn clean package
+
+# Run JAR file
+java -jar target/user-management-service-0.0.1-SNAPSHOT.jar
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License.
