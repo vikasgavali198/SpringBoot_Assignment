@@ -1,0 +1,9 @@
+package com.example.usermanagement.config;
+
+import com.example.usermanagement.security.UserDetailsServiceImpl;
+import com.example.usermanagement.security.jwt.AuthEntryPointJwt;
+import com.example.usermanagement.security.jwt.AuthTokenFilter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
