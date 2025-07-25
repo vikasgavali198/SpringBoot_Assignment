@@ -1,0 +1,62 @@
+package com.example.usermanagement.controller;
+
+import com.example.usermanagement.dto.JwtResponse;
+import com.example.usermanagement.dto.LoginRequest;
+import com.example.usermanagement.dto.MessageResponse;
+import com.example.usermanagement.dto.RegisterRequest;
+import com.example.usermanagement.entity.User;
+import com.example.usermanagement.security.UserPrincipal;
+import com.example.usermanagement.security.jwt.JwtUtils;
+import com.example.usermanagement.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
+import javax.validation.Valid;
+
+@CrossOrigin(origins = "*", maxAge = 3600)
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+    @Autowired
+    AuthenticationManager authenticationManager;
+
+    @Autowired
+    UserService userService;
+
+    @Autowired
+    JwtUtils jwtUtils;
+
+    @PostMapping("/login")
+    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtUtils.generateJwtToken(authentication);
+
+        UserPrincipal userDetails = (UserPrincipal) authentication.getPrincipal();
+        User user = userService.findByEmail(userDetails.getEmail());
+
+        return ResponseEntity.ok(new JwtResponse(jwt,
+                                                userDetails.getId(),
+                                                userDetails.getEmail(),
+                                                userDetails.getFirstName(),
+                                                userDetails.getLastName(),
+                                                user.getRoles()));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> registerUser(@Valid @RequestBody RegisterRequest registerRequest) {
+        User user = userService.registerUser(registerRequest);
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(new MessageResponse("User registered successfully!"));
+    }
+}
